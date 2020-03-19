@@ -21,16 +21,20 @@ output:
 bibliography: '`r path.expand("~/bibliography.bib")`'
 ---
 
+
 # Set up
 
 ```{r setup}
+
 knitr::opts_chunk$set(echo = TRUE)
 
 # Set start time ----
 startTime <- proc.time()
 
 # Libraries ----
+
 message("Loading libraries...")
+
 library(here) # where are we?
 library(data.table) # data frames with superpowers
 library(ggplot2) # pretty plots
@@ -44,7 +48,9 @@ dPath <- paste0(here::here(), "/data/")
 dFile <- paste0(dPath, "ClimateData_1976_2019.csv")
 
 # get data ----
+
 message("Getting data from ", dFile)
+
 weatherDT <- data.table::fread(dFile) # load data
 ```
 

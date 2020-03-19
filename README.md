@@ -1,2 +1,6 @@
-# botanicals
-Not gin, code for doing analysis of various flowery datasets
+## Not gin
+
+Code for doing various flowery things:
+
+ * weather data suff
+   * [droughts](weatherData.html)
