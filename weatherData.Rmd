@@ -1,0 +1,186 @@
+---
+params:
+  subtitle: "Looking for droughts"
+  title: "Weather data"
+  authors: "Ben Anderson (b.anderson@soton.ac.uk, `@dataknut`)"
+title: '`r params$title`'
+subtitle: '`r params$subtitle`'
+author: '`r params$authors`'
+date: 'Last run at: `r Sys.time()`'
+output:
+  bookdown::html_document2:
+    fig_caption: yes
+    code_folding: hide
+    number_sections: yes
+    toc: yes
+    toc_depth: 2
+    toc_float: TRUE
+  bookdown::pdf_document2:
+    fig_caption: yes
+    number_sections: yes
+bibliography: '`r path.expand("~/bibliography.bib")`'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Set start time ----
+startTime <- proc.time()
+
+# Libraries ----
+library(here) # where are we?
+library(data.table) # data frames with superpowers
+library(ggplot2) # pretty plots
+library(kableExtra) # pretty tables
+library(lubridate) # date & time stuff
+library(plotly) # interactive plots
+library(skimr) # descriptive & summary stats
+
+# Parameters ----
+dPath <- paste0(here::here(), "/data/")
+dFile <- paste0(dPath, "ClimateData_1976_2019.csv")
+
+# get data ----
+weatherDT <- data.table::fread(dFile) # load data
+```
+
+# Background
+
+We want to load some UK weather data and have a look at it. We then want to see if we can:
+
+ * find droughts. Droughts in the UK are periods of > 14 days where precipitation is lower than 0.2 (cm?);
+ * ....
+
+# Have a look at the data
+
+```{r checkData}
+weatherDT$V1 <- NULL # what's the row number for?
+
+# do some pre-processing ----
+weatherDT[, date := lubridate::dmy(Date)] # make nice date
+weatherDT[, year := lubridate::year(date)] # make nice date
+weatherDT[, month := lubridate::month(date, label = TRUE, abbr = TRUE)] # make nice date
+t <- head(weatherDT) # what have we got?
+
+kableExtra::kable(t, caption = "First few rows of processed data") %>%
+  kable_styling()
+
+skimr::skim(weatherDT)
+```
+
+
+Just for fun let's plot the data. You should be able to hover the mouse over the dots in \@ref(fig:plotData) to investigate.
+
+```{r plotData, fig.cap="Mean precipitation per month by year"}
+# just for fun
+plotDT <- weatherDT[, .(meanPrcpt = mean(prcpt)), 
+                    keyby = .(year, month)]
+
+p <- ggplot2::ggplot(plotDT, aes(x = month, y = meanPrcpt, group = year, colour = year)) +
+  geom_point() +
+  scale_color_viridis_c() +
+  labs(y = "Mean precipitation",
+       caption = "Year treated as continuous for pretty colours")
+
+plotly::ggplotly(p) # interactive plot
+```
+
+So that looks vaguely right.
+
+# Challenge 1: Find the droughts
+
+Count the number of spans (per year?) of 15 or more days when the daily rainfall < 0.2. This is the UK definition of drought.
+
+To do this we:
+
+ * mark the first & last days in a sequence of low rainfall (< 0.2) days
+ * get the time difference between them in days
+ * find the ones where the difference is > 14
+
+Table \@ref(tab:findDroughts) shows the number of low precipitation events (1 or more days with < 0.2) which were droughts (> 14 days in a row) by start month and year. Perhaps surprisingly 1976 has none.
+
+```{r findDroughts}
+
+setkey(weatherDT,date) # ensures ordered by date
+weatherDT[, droughtThresh := ifelse(prcpt < 0.2, 1, 0)] # to make life easier
+# flag the start & ends of low precipitation periods
+weatherDT[, droughtPeriod := ifelse(droughtThresh == 1 & 
+                                      shift(droughtThresh == 0), # first of 1 -> n days with low
+                                   "Start", 
+                                   NA)] 
+weatherDT[, droughtPeriod := ifelse(droughtThresh == 0 & 
+                                      shift(droughtThresh == 1), # last of 1 -> n days with low
+                                    "End", 
+                                    droughtPeriod)] 
+
+# now isolate the start & ends of low precipitation periods
+lowPrcptPeriodsDT <- weatherDT[droughtPeriod == "Start" | 
+                                 droughtPeriod == "End"]
+
+lowPrcptPeriodsDT[, periodCount := ifelse(droughtPeriod == "Start",
+                                          shift(date, type = "lead") - date, # n days between start & end (they are ordered)
+                                          NA) # undefined between end & start (we don't care about periods between droughts for now)
+                  ] 
+
+# flag the droughts using the 14 day threshold
+lowPrcptPeriodsDT[, drought := ifelse(periodCount > 14, 
+                                      "Drought", 
+                                      "Not drought")]
+
+plotDT <- lowPrcptPeriodsDT[, .(nDroughts = .N), # data.table magic
+                            keyby = .(drought, year, start = month)] # add up number of droughts/no droughts in these periods of low precip
+
+kableExtra::kable(plotDT[drought == "Drought"], caption = "Number of low precipitation periods that were droughts by year") %>%
+  kable_styling()
+```
+
+Just to make this clear, Figure \@ref(fig:plotDroughts) shows the pattern of number of droughts by start month and year.
+
+```{r plotDroughts, fig.cap="Number of droughts by start month and year"}
+p <- ggplot2::ggplot(plotDT[drought == "Drought"], 
+                aes(x = start, fill = nDroughts, y = year)) +
+  geom_tile() +
+  labs(caption = "Note: months without droughts (Jan/Feb & Dec) not shown")
+
+p
+```
+
+Of note:
+
+ * 1976: Was a hot summer after a dry winter (1975-1976) - so this was a hydrological drought - there was rain, but not enough to refill the reservoirs... https://historicdroughts.ceh.ac.uk/content/northern-drought-1984
+ * 1984: https://historicdroughts.ceh.ac.uk/content/northern-drought-1984 & https://historicdroughts.ceh.ac.uk/content/northern-drought-1984
+ * 1995: https://en.wikipedia.org/wiki/1995_Great_Britain_and_Ireland_heat_wave & https://historicdroughts.ceh.ac.uk/content/tanker-drought-1995-1998
+ * 2003: https://en.wikipedia.org/wiki/2003_European_heat_wave#United_Kingdom & https://historicdroughts.ceh.ac.uk/content/hot-summer-2003 
+
+# Runtime
+
+
+```{r check runtime}
+t <- proc.time() - startTime
+
+elapsed <- t[[3]]
+```
+
+Analysis completed in `r elapsed` seconds ( `r round(elapsed/60,2)` minutes) using [knitr](https://cran.r-project.org/package=knitr) in [RStudio](http://www.rstudio.com) with `r R.version.string` running on `r R.version$platform`.
+
+# R environment
+
+R packages used:
+
+ * base R - for the basics [@baseR]
+ * data.table - for fast (big) data handling [@data.table]
+ * ggplot2 - for slick graphics [@ggplot2]
+ * here - for here [@here]
+ * lubridate - date manipulation [@lubridate]
+ * kableExtra - fancy tables [@kableExtra]
+ * knitr - to create this document [@knitr]
+ * skimr - data summaries [@skimr]
+ 
+```{r sessionInfo}
+sessionInfo()
+```
+
+
+# References
+
+
