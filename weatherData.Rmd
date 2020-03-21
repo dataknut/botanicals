@@ -67,9 +67,9 @@ We want to load some UK weather data and have a look at it. We then want to see 
 weatherDT$V1 <- NULL # what's the row number for?
 
 # do some pre-processing ----
-weatherDT[, date := lubridate::dmy(Date)] # make nice date
-weatherDT[, year := lubridate::year(date)] # make nice date
-weatherDT[, month := lubridate::month(date, label = TRUE, abbr = TRUE)] # make nice date
+weatherDT[, rDate := lubridate::dmy(Date)] # make nice date
+weatherDT[, year := lubridate::year(rDate)] # make nice year
+weatherDT[, month := lubridate::month(rDate, label = TRUE, abbr = TRUE)] # make nice date
 t <- head(weatherDT) # what have we got?
 
 kableExtra::kable(t, caption = "First few rows of processed data") %>%
@@ -111,7 +111,7 @@ Table \@ref(tab:findDroughts) shows the number of low precipitation events (1 or
 
 ```{r findDroughts}
 
-setkey(weatherDT,date) # ensures ordered by date
+setkey(weatherDT,rDate) # ensures ordered by date
 weatherDT[, droughtThresh := ifelse(prcpt < 0.2, 1, 0)] # to make life easier
 # flag the start & ends of low precipitation periods
 weatherDT[, droughtPeriod := ifelse(droughtThresh == 1 & 
@@ -128,26 +128,44 @@ lowPrcptPeriodsDT <- weatherDT[droughtPeriod == "Start" |
                                  droughtPeriod == "End"]
 
 lowPrcptPeriodsDT[, periodCount := ifelse(droughtPeriod == "Start",
-                                          shift(date, type = "lead") - date, # n days between start & end (they are ordered)
+                                          shift(rDate, type = "lead") - rDate, # n days between start & end (they are ordered)
                                           NA) # undefined between end & start (we don't care about periods between droughts for now)
                   ] 
 
 # flag the droughts using the 14 day threshold
 lowPrcptPeriodsDT[, drought := ifelse(periodCount > 14, 
-                                      "Drought", 
+                                      "Drought start", 
                                       "Not drought")]
 
 plotDT <- lowPrcptPeriodsDT[, .(nDroughts = .N), # data.table magic
                             keyby = .(drought, year, start = month)] # add up number of droughts/no droughts in these periods of low precip
 
-kableExtra::kable(plotDT[drought == "Drought"], caption = "Number of low precipitation periods that were droughts by year") %>%
+# save out the low precip periods
+outF <- paste0(dPath, "lowPrecipSequences.csv")
+data.table::fwrite(lowPrcptPeriodsDT, outF) # includes start and end of sequences
+# save out just the flagged droughts
+lowPrcptPeriodsDT[, drought := ifelse(droughtPeriod == "End" &
+                                        shift(periodCount > 14),
+                                      "Drought end",
+                                      drought)
+                  ] # flag drought end as drought too for data output
+outF <- paste0(dPath, "lowPrecipSequencesDroughts.csv")
+data.table::fwrite(lowPrcptPeriodsDT[drought %like% "Drought"], outF)
+
+ggplot2::ggplot(lowPrcptPeriodsDT, aes(x = periodCount)) +
+  geom_histogram() +
+  labs(x = "Duration of low precipitation periods (sequences of days < 0.2 cm, entire period)")
+```
+
+```{r droughtsTable}
+kableExtra::kable(plotDT[drought == "Drought start"], caption = "Number of low precipitation periods that were droughts by year") %>%
   kable_styling()
 ```
 
 Just to make this clear, Figure \@ref(fig:plotDroughts) shows the pattern of number of droughts by start month and year.
 
-```{r plotDroughts, fig.cap="Number of droughts by start month and year"}
-p <- ggplot2::ggplot(plotDT[drought == "Drought"], 
+```{r plotDroughtCounts, fig.cap="Number of droughts by start month and year"}
+p <- ggplot2::ggplot(plotDT[drought == "Drought start"], 
                 aes(x = start, fill = nDroughts, y = year)) +
   geom_tile() +
   labs(caption = "Note: months without droughts (Jan/Feb & Dec) not shown")
@@ -155,12 +173,64 @@ p <- ggplot2::ggplot(plotDT[drought == "Drought"],
 p
 ```
 
-Of note:
+If this chart in not what you expect then remember:
+
+ * the plot is **not** showing the actual span of days, it is showing a count of how many drought events there were that started in a given month;
+ * the method will not classify a sequence of 4 days 'rain < 0.2 cm' -> 1 day 'rain > 0.2' -> 11 days 'rain < 0.2' as drought. It is, literally just finding periods of > 14 consecurive days with 'rain < 0.2'. It seems there weren't any in 1976 despite it being a "drought" (see below);
+ * meteorological drought (no rain) and hydrological drought (no ground water) are not the same thing...
+ * our experience of drought and what plants experience as water stress may not correlate that closely with the meteorological definition of drought used here...
+ 
+ Of note:
 
  * 1976: Was a hot summer after a dry winter (1975-1976) - so this was a hydrological drought - there was rain, but not enough to refill the reservoirs... https://historicdroughts.ceh.ac.uk/content/northern-drought-1984
  * 1984: https://historicdroughts.ceh.ac.uk/content/northern-drought-1984 & https://historicdroughts.ceh.ac.uk/content/northern-drought-1984
  * 1995: https://en.wikipedia.org/wiki/1995_Great_Britain_and_Ireland_heat_wave & https://historicdroughts.ceh.ac.uk/content/tanker-drought-1995-1998
  * 2003: https://en.wikipedia.org/wiki/2003_European_heat_wave#United_Kingdom & https://historicdroughts.ceh.ac.uk/content/hot-summer-2003 
+
+We can also plot the drought spans themselves (which might have been more useful in any case :-) - see Figure \@ref(fig:plotDroughtPeriodsSegment).
+
+```{r plotDroughtPeriodsHisto, fig.cap="Drought periods histogram"}
+
+droughtsDT <- lowPrcptPeriodsDT[drought %like% "Drought"]
+
+ggplot2::ggplot(droughtsDT, aes(x = periodCount)) +
+  geom_histogram() +
+  labs(x = "Drought duration (days) - whole period")
+
+t <- droughtsDT[, .(meanDuration = mean(periodCount, na.rm = TRUE),
+                    minDuration = min(periodCount, na.rm = TRUE),
+                    maxDuration = max(periodCount, na.rm = TRUE))]
+
+kableExtra::kable(t, caption = "Duration stats (all years)") %>%
+  kable_styling()
+```
+
+```{r plotDroughtPeriodsSegment, fig.cap="Drought periods over time"}
+droughtsDT[, startDate := rDate] 
+droughtsDT[, endDate := shift(rDate, type = "lead")]
+
+# so how do we plot that?
+plotDT <- droughtsDT[drought == "Drought start"]
+plotDT[, startDec := lubridate::date_decimal(2000 + (lubridate::decimal_date(startDate) - year))]
+plotDT[, endDec := lubridate::date_decimal(2000 + (lubridate::decimal_date(endDate) - year))]
+
+p <- ggplot2::ggplot(plotDT, aes(x = startDec, xend = endDec,
+                                y = year, yend = year)) +
+  geom_segment(colour = "red") +
+  # theme(legend.position="bottom") +
+  # guides(colour = guide_legend(title = "Year", nrow = 2)) +
+  scale_y_continuous(breaks = c(1975, 1980, 1985,1990,1995,2000,2005,2010,2015,2020)) +
+  labs(x = "Date") +
+  scale_x_datetime(date_breaks = "1 month", date_labels = "%b %d")
+p +
+  geom_text(
+    label= plotDT$year, 
+    size = 3,
+    nudge_y = 0.5,
+    check_overlap = T
+  )
+```
+
 
 # Runtime
 
