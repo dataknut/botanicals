@@ -107,8 +107,6 @@ To do this we:
  * get the time difference between them in days
  * find the ones where the difference is > 14
 
-Table \@ref(tab:findDroughts) shows the number of low precipitation events (1 or more days with < 0.2) which were droughts (> 14 days in a row) by start month and year. Perhaps surprisingly 1976 has none.
-
 ```{r findDroughts}
 
 setkey(weatherDT,rDate) # ensures ordered by date
@@ -157,6 +155,10 @@ ggplot2::ggplot(lowPrcptPeriodsDT, aes(x = periodCount)) +
   labs(x = "Duration of low precipitation periods (sequences of days < 0.2 cm, entire period)")
 ```
 
+## Counting droughts
+
+Table \@ref(tab:findDroughts) shows the number of low precipitation events (1 or more days with < 0.2) which were droughts (> 14 days in a row) by start month and year. Perhaps surprisingly 1976 has none.
+
 ```{r droughtsTable}
 kableExtra::kable(plotDT[drought == "Drought start"], caption = "Number of low precipitation periods that were droughts by year") %>%
   kable_styling()
@@ -187,6 +189,8 @@ If this chart in not what you expect then remember:
  * 1995: https://en.wikipedia.org/wiki/1995_Great_Britain_and_Ireland_heat_wave & https://historicdroughts.ceh.ac.uk/content/tanker-drought-1995-1998
  * 2003: https://en.wikipedia.org/wiki/2003_European_heat_wave#United_Kingdom & https://historicdroughts.ceh.ac.uk/content/hot-summer-2003 
 
+## Drought periods
+
 We can also plot the drought spans themselves (which might have been more useful in any case :-) - see Figure \@ref(fig:plotDroughtPeriodsSegment).
 
 ```{r plotDroughtPeriodsHisto, fig.cap="Drought periods histogram"}
@@ -205,7 +209,7 @@ kableExtra::kable(t, caption = "Duration stats (all years)") %>%
   kable_styling()
 ```
 
-```{r plotDroughtPeriodsSegment, fig.cap="Drought periods over time"}
+```{r plotDroughtPeriodsSegment, fig.cap="Drought periods by year"}
 droughtsDT[, startDate := rDate] 
 droughtsDT[, endDate := shift(rDate, type = "lead")]
 
@@ -231,6 +235,7 @@ p +
   )
 ```
 
+Is that what we expect? The periods appear visually similar in length but this just reflects the tight distribution of durations (see Figure \@ref(fig:plotDroughtPeriodsHisto)).
 
 # Runtime
 
