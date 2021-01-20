@@ -1,0 +1,33 @@
+spp,h_max,h_min,le_area,le_long,ell_N,strategy
+Agro.capi,70,10,5.5,evergreen,4,csr
+Agro.stol,100,15,5.5,evergreen,5,csr
+anth.odor,50,20,5.5,evergreen,4,csr
+Briz.medi,60,15,5.5,evergreen,3,csr
+Camp.rotu,40,15,5.5,evergreen,2,csr
+Cent.nigr,60,15,55.0,aestival,4,c
+Cyno.cris,75,15,5.5,evergreen,4,csr
+Dact.glom,100,30,55.0,evergreen,6,c
+Fest.rubr,100,30,1.0,aestival,5,c
+Gali.apar,120,15,1.0,hibernal,8,cr
+Gali.veru,100,15,0.6,evergreen,3,csr
+Holc.lana,100,20,1.0,semi-evergreen,5,c
+Hypo.radi,60,20,55.0,semi-evergreen,3,csr
+Leon.hisp,60,10,55.0,aestival,6,csr
+Leuc.vulg,100,10,5.5,evergreen,4,c
+Loli.pere,90,8,5.5,evergreen,6,c
+Lotu.corn,35,5,5.5,aestival,3,csr
+Plan.lanc,40,15,55.0,evergreen,5,csr
+Poa .prat,50,50,1.0,evergreen,6,c
+Poa .triv,60,20,5.5,evergreen,7,csr
+Prim.veri,30,10,55.0,evergreen,3,csr
+Prun.vulg,30,5,5.5,evergreen,5,csr
+Ranu.acri,60,15,5.5,evergreen,5,c
+Ranu.repe,60,15,55.0,evergreen,7,csr
+Rhin.mino,50,30,5.5,aestival,4,csr
+Rume.obtu,120,15,100.0,evergreen,9,c
+Sene.jaco,150,30,55.0,evergreen,4,c
+Succ.prat,100,15,55.0,evergreen,2,cs
+Trif.prat,100,5,5.5,evergreen,6,c
+Tris.flav,80,20,5.5,evergreen,5,csr
+Vero.cham,40,20,5.5,evergreen,6,csr
+Vici.sepi,100,30,55.0,aestival,6,c

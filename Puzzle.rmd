@@ -1,0 +1,62 @@
+---
+title: "Puzzle"
+author: "Bob Anderson"
+date: "20/01/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+library(tidyverse)
+```
+
+## The Objective
+
+I am preparing for this year's grand analysis of the 20 years of meadow data. P has been advised by her friends that she should stop looking at species distributions and look instead at the distributions for components of traits which the species display. The aim, at a first approximation, is to model and test the abundances by trait against environmental data ( weather data). I can do the analysis and work the modelling. What is painful is assembling the basic tables to be used.
+
+## Assembling the data
+
+There are 3  data tables providing input data: thfSpp, thfTraits, thFEnv. The optimal outcome would be to run the whole process in a set of nested loops, but I have been unable to make that work. Instead, I have broken the process into the following steps
+
+### Step 1
+
+Creates a temporary df holding the trait and species abundances. The trait chosen is arbitary. 
+
+```{r}
+wkDT <- t(thfSpp)
+wkDT <- wkDT[-1, ]
+wkDT <- cbind.data.frame(wkDT, thfTraits$h_max)
+colnames(wkDT) <- c("obs1", "obs2", "obs3", "obs4", "obs5", "obs6", "obs7", "obs8", "obs9", "obs10", "obs11", "obs12", "obs13", "h_max")
+```
+###  Step 2
+
+To create the trait df, take the wkDT and group the data by the trait and for obs1 summarise abundances for components .
+
+```{r}
+h_maxDT <- wkDT %>% 
+  group_by(h_max) #%>%
+  summarise(tot = sum(obs1))
+```
+
+###  Step 3
+
+Now, by hand, run over obs2:obs13 aggregating the trait df. 
+
+```{r}
+tot <- wkDT  %>%
+  group_by(h_max) %>%
+  summarise(tot = sum(obs13))
+  h_maxDT<- cbind(h_maxDT, tot[,-1])
+  
+```
+This gets me a df for the trait which I can save for re-use. I then repeat the exercise for the rest of the traits
+
+## The Required Function
+
+What I absolutely need is a function to do steps 2 and 3 automatically. P's species list is going to give me 30+ cols of observations. Additionally, I could do with a function to build the trait data frames automatically into which steps 2 & 3 could insert the summaries. At present the traiit list looks to be 20 or so items long.
+Ideally, I could do with both functions bundled together as nested loops. What don't want to do is spend loads of time just assembling the data. All the methods I have tried (loops, purr::map, lappy....vapply and more) all fail, hence my cry for help!
