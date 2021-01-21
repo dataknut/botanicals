@@ -29,7 +29,7 @@ There are 3  data tables providing input data: thfSpp, thfTraits, thFEnv. The op
 
 Creates a temporary df holding the trait and species abundances. The trait chosen is arbitary. 
 
-```{r}
+```{r steo1}
 # wkDT <- t(thfSpp) # where did this come from? Which dataset?
 # wkDT <- wkDT[-1, ]
 # wkDT <- cbind.data.frame(wkDT, thfTraits$h_max)
@@ -71,7 +71,7 @@ table(mergedDT$year, useNA = "always")
 
 To create the trait df, take the wkDT and group the data by the trait and for obs1 summarise abundances for components .
 
-```{r}
+```{r steo2}
 # h_maxDT <- wkDT %>% 
 #   group_by(h_max) #%>%
 #   summarise(tot = sum(obs1))
@@ -88,7 +88,7 @@ lDT <- data.table::melt(mergedDT, id.vars = c("year", "spp", "count"),
                         variable.name = "trait")
 head(lDT)
 
-# now sum the counts by trait by year
+# now sum the counts by trait-value by year
 # no loops needed :-)
 traitTable <- lDT[,
                   .(sumOfCounts = sum(count)), 
@@ -119,7 +119,7 @@ ggplot2::ggplot(traitTable[trait == "h_max"],
 
 Now, by hand, run over obs2:obs13 aggregating the trait df. 
 
-```{r}
+```{r steo3}
 # tot <- wkDT  %>%
 #   group_by(h_max) %>%
 #   summarise(tot = sum(obs13))
