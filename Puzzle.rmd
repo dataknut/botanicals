@@ -13,6 +13,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(tidyverse)
+library(data.table) # database/sql-like syntax for doing stuff with data frames very fast
+library(here) # relative paths within this project. Useful for data loading
 ```
 
 ## The Objective
@@ -28,19 +30,89 @@ There are 3  data tables providing input data: thfSpp, thfTraits, thFEnv. The op
 Creates a temporary df holding the trait and species abundances. The trait chosen is arbitary. 
 
 ```{r}
-wkDT <- t(thfSpp)
-wkDT <- wkDT[-1, ]
-wkDT <- cbind.data.frame(wkDT, thfTraits$h_max)
-colnames(wkDT) <- c("obs1", "obs2", "obs3", "obs4", "obs5", "obs6", "obs7", "obs8", "obs9", "obs10", "obs11", "obs12", "obs13", "h_max")
+# wkDT <- t(thfSpp) # where did this come from? Which dataset?
+# wkDT <- wkDT[-1, ]
+# wkDT <- cbind.data.frame(wkDT, thfTraits$h_max)
+# colnames(wkDT) <- c("obs1", "obs2", "obs3", "obs4", "obs5", "obs6", "obs7", "obs8", "obs9", "obs10", "obs11", "obs12", "obs13", "h_max")
+
+# load the data
+# stored in data folder in this project for now
+# from here on we are using data.table (which is not always obvious from the code)
+thfSppDT <- data.table::fread(here::here("data", "thfSpp.csv"))
+thfTraitsDT <- data.table::fread(here::here("data", "thfTraits.csv"))
+
+# now I'm stuck - I can't see what you trying to do next but
+# on the assumption that we need to link the counts to the traits by species we can:
+# convert the count data into a long form so we can attach the trait data to each species observation
+
+thfSppDT_l <- data.table::melt(thfSppDT, id.vars = c("year"),
+                               variable.name = "spp",
+                               value.name = "count")
+head(thfSppDT_l)
+
+# now merge the two datasets so we add the trait record to each of the 
+# count records. This would be better done on the fly to save memory but
+# for now...
+
+data.table::setkey(thfSppDT_l, spp) # set the variable to match on
+data.table::setkey(thfTraitsDT, spp) # set the variable to match on
+
+mergedDT <- thfSppDT_l[thfTraitsDT]
+
+head(mergedDT)
+
+table(mergedDT$year, useNA = "always")
+# we get an NA due to merge
+mergedDT <- mergedDT[!is.na(year)] # filter it out
+table(mergedDT$year, useNA = "always")
 ```
+
 ###  Step 2
 
 To create the trait df, take the wkDT and group the data by the trait and for obs1 summarise abundances for components .
 
 ```{r}
-h_maxDT <- wkDT %>% 
-  group_by(h_max) #%>%
-  summarise(tot = sum(obs1))
+# h_maxDT <- wkDT %>% 
+#   group_by(h_max) #%>%
+#   summarise(tot = sum(obs1))
+
+# like this? (I'm not sure what obs1 is - years?)
+
+h_max <- mergedDT[, .(sum = sum(count)),
+                     keyby = .(year, h_max)]
+h_max
+
+# more generically, if we convert this table to a  long form we can use data.table magic
+
+lDT <- data.table::melt(mergedDT, id.vars = c("year", "spp", "count"),
+                        variable.name = "trait")
+head(lDT)
+
+# now sum the counts by trait by year
+# no loops needed :-)
+traitTable <- lDT[,
+                  .(sumOfCounts = sum(count)), 
+                  keyby = .(year, trait, value)]
+
+head(traitTable)
+
+# traitTable now holds a sum of counts by trait-value by year
+# is that what you want?
+
+# you can then turn it back round to wide data if you want but probably easier to keep it like this
+```
+
+As an example Figure \@ref(fig:h_maxPlot) plots the sum of counts by h_max over time.
+
+```{r h_maxPlot}
+ggplot2::ggplot(traitTable[trait == "h_max"],
+                aes(x = year,
+                    y = sumOfCounts,
+                    colour = value)) +
+  geom_line() +
+  scale_color_discrete(name = "Trait value") +
+  theme(legend.position="bottom", ) +
+  labs(caption = "Trait: h_max")
 ```
 
 ###  Step 3
@@ -48,10 +120,10 @@ h_maxDT <- wkDT %>%
 Now, by hand, run over obs2:obs13 aggregating the trait df. 
 
 ```{r}
-tot <- wkDT  %>%
-  group_by(h_max) %>%
-  summarise(tot = sum(obs13))
-  h_maxDT<- cbind(h_maxDT, tot[,-1])
+# tot <- wkDT  %>%
+#   group_by(h_max) %>%
+#   summarise(tot = sum(obs13))
+#   h_maxDT<- cbind(h_maxDT, tot[,-1])
   
 ```
 This gets me a df for the trait which I can save for re-use. I then repeat the exercise for the rest of the traits
