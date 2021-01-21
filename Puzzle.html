@@ -542,7 +542,7 @@ lDT &lt;- data.table::melt(mergedDT, id.vars = c(&quot;year&quot;, &quot;spp&quo
 ## 4: 2007 Agro.capi    35 h_max    70
 ## 5: 2008 Agro.capi    25 h_max    70
 ## 6: 2009 Agro.capi     0 h_max    70</code></pre>
-<pre class="r"><code># now sum the counts by trait by year
+<pre class="r"><code># now sum the counts by trait-value by year
 # no loops needed :-)
 traitTable &lt;- lDT[,
                   .(sumOfCounts = sum(count)), 
