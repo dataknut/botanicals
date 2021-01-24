@@ -11,10 +11,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 
-```{r}
+```{r libraries}
 library(tidyverse)
 library(data.table) # database/sql-like syntax for doing stuff with data frames very fast
 library(here) # relative paths within this project. Useful for data loading
+library(flextable)
 ```
 
 ## The Objective
@@ -104,7 +105,7 @@ head(traitTable)
 
 As an example Figure \@ref(fig:h_maxPlot) plots the sum of counts by h_max over time.
 
-```{r h_maxPlot}
+```{r h_maxPlot, fig.cap="h_max trends"}
 ggplot2::ggplot(traitTable[trait == "h_max"],
                 aes(x = year,
                     y = sumOfCounts,
@@ -113,6 +114,14 @@ ggplot2::ggplot(traitTable[trait == "h_max"],
   scale_color_discrete(name = "Trait value") +
   theme(legend.position="bottom", ) +
   labs(caption = "Trait: h_max")
+```
+
+So now if you want to do something with the h_max trait you just extract the relevant rows like this:
+
+```{r, extract_h_max}
+t <- traitTable[trait == "h_max"]
+setkey(t, year, value)
+flextable(t)
 ```
 
 ###  Step 3
